@@ -1,0 +1,152 @@
+---
+title: "Concrete Compressive strength"
+author: "Onesmus Kabui"
+format: html
+editor: visual
+---
+
+## Introduction
+
+### Data set overview
+
+This data set shows the relationship between compressive strength of concrete and mixture proportions of concrete. We have cement, blast furnace slag, water,fly ash, superplasticizer, coarse aggregate, fine aggregate and age as feature variables for predicting the target variable compressive strength measured in mega pascals. Using this data we will develop models to predict compressive strength using the 8 variables. Predicting concrete compressive strength holds major significance to ensure material optimization, efficiency and construction safety. We have sourced this data from the UCI machine learning repository.
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(caret)
+library(ggplot2)
+```
+
+```{r}
+#load dataset
+setwd("C:/Users/user/Desktop/datasets")
+concrete_data<-read_excel("Concrete_Data.xls")
+glimpse(concrete_data)
+concrete_data %>% 
+  colnames()#check column names
+#renaming columns
+concrete_data<- concrete_data %>% 
+  rename(cement=`Cement (component 1)(kg in a m^3 mixture)`,
+         blast_furnace_slag=`Blast Furnace Slag (component 2)(kg in a m^3 mixture)`,
+         fly_ash=`Fly Ash (component 3)(kg in a m^3 mixture)`,
+         water=`Water  (component 4)(kg in a m^3 mixture)`,
+         super_plasticizer=`Superplasticizer (component 5)(kg in a m^3 mixture)`,
+         coarse_aggregate=`Coarse Aggregate  (component 6)(kg in a m^3 mixture)`,
+         fine_aggregate=`Fine Aggregate (component 7)(kg in a m^3 mixture)`,strength=`Concrete compressive strength(MPa, megapascals)`)
+
+#check column names
+colnames(concrete_data)
+```
+
+### Linear Modelling
+
+In the first part of our analysis we work with the assumption of linearity and so we fit a multiple linear regression. We first split the data to training and testing sets. We would like to keep a training set at 80% the total data.
+
+```{r}
+set.seed(66)
+train_index<- createDataPartition(concrete_data$strength,p=0.8,list = FALSE)
+
+train_concrete<- concrete_data[train_index,]
+test_concrete<- concrete_data[-train_index,]
+
+```
+
+### Linear regression
+
+```{r}
+colnames(train_concrete)
+concrete_train_lm<- lm(strength ~., data=train_concrete)
+summary(concrete_train_lm)
+```
+
+From the base linear model we can make some observations already.
+
+From the residuals; minimum, first quartile, median, third quartile and maximum residuals, We see that 50% of wrong predictions of compressive strength fall between -6.311 and 6.799MPa, of the true value which on itself is not extremely bad but on the flip side we have predictions from our model that go as far as 33.999 MPa from the true value. These extreme values explain why our model explains 61% of variability that is R squared 0.6112.
+
+From the coefficients; cement, blast furnace slag, fly ash, super plasticizer and age show a strong positive effects on concrete compressive strength showing that higher values of these variables are associated with higher concrete compressive strength.
+
+On the other hand, fine aggregate and coarse aggregate doesn't show statistically significant coefficients suggesting their variation doesn't strongly influence concrete compressive strength in this data set.
+
+Water as a predictor has a statistically significant negative coefficient meaning that an extreme amount of water has negative effect on concrete compressive strength.
+
+### Making predictions
+
+With our training data model we can make prediction
+
+```{r}
+strength_pred<- predict(concrete_train_lm, newdata= test_concrete)# predicted values of strength
+
+pred_actual<- data.frame(actual= test_concrete$strength,strength_pred)#dataframe of actual and predicted strength values
+
+head(pred_actual,10)
+```
+
+We now have a data frame of predicted values and test data set actual values and can move on and evaluate the quality of fit
+
+```{r}
+ggplot(pred_actual,aes(x=actual,y=strength_pred))+
+         geom_point(color="blue")+
+         geom_abline(slope = 1,intercept = 0,color="red")+
+         labs(title = "actual strength vs predicted strength",x="actual strength",y="predicted strength")+
+         theme_minimal()
+```
+
+From this plot we see that the predicted values tend to fit fairly well to the ideal horizontal line but we see more prediction error in the medium strength and also our model seems to underpredict very strong concrete.
+
+We can also plot the residual between the predicted and actual training strength and see the distribution of residuals
+
+```{r}
+concrete_residuals<-test_concrete$strength- strength_pred
+hist(concrete_residuals,main = "Residual Distribution",xlab = "Error (MPa)")
+```
+
+From the residual distribution plot it's satisfactory with most residuals are centered around 0 and has a normal distribution.
+
+Lastly, to quantify the accuracy of our model is we use the metrics; RMSE and R squared
+
+```{r}
+#root mean squared error
+RMSE<-sqrt(mean((concrete_residuals^2)))
+R_squared<- cor(strength_pred, test_concrete$strength)^2
+RMSE
+R_squared
+
+```
+
+The model’s average prediction error is approximately 10MPa and that linear regression model explains roughly 63% of the variability in concrete compressive strength so we know linear model still leaves alot of variability in concrete compressive strength unexplained.
+
+### Diagnostics
+
+We can proceed with residual diagnostics to see if the residuals meet regression assumptions.
+
+```{r}
+par(mfrow=c(2,2))
+plot(concrete_train_lm)
+```
+
+Linearity\~ from the plot of residuals against predicted values we see a slight curve in the fitted line suggesting possible heteroscedasticity. So the relationship between variables and the response might not be perfectly linear
+
+Normality\~ from the normality plot most points other than in the ends, possible outliers fall in the diagonal a strong evidence of normality.
+
+the scale location plot hints at heteroscedasticity as well as variance increases with fitted values from the horizontal line that isn't very horizontal.
+
+most points lie in the low leverage there are some outliers but they seem not to be very influential as outliers as they are inside the cook's distance.
+
+### Findings
+
+-   The predictors explain 63% of the variance in compressive strength that's fair but it can be improved through interaction terms and quadratic transformations..
+
+-   The model also predicts on average with an error of 10MPa for each predicted value either more or less.
+
+-   From the model we see can see that several variables are more important predictors while others are nor as important.
+
+    at 5% level of significance,
+
+-   Cement is significant, for every 1kg/m\^3 increase in cement there is a corresponding increase of 0.12MPa while holding everything constant.
+
+-   Blast furnace slug ,fly ash and superplasticizer also show a statistical significance because their p values are well below 0.05
+
+-   Age is very significant as well so the longer the concrete heals it gets stronger. On average it registers that the the strength improves by 0.11MPa per day that passes
+
+-   Water on the other hand is also very significant but in a different direction showing inverse effect with increase of water past a certain point
