@@ -54,7 +54,7 @@ The model provides a fair baseline for predicting compressive strength but leave
 
 How to Run
 
-Clone the project and open the .Rmd or .R file in RStudio.
+Clone the project and open the .qmd in RStudio.
 
 Install the required packages:
 
